@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GE Vernova - LED Display</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000000;
+            /* Black letterbox bars */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body {
+            width: 100%;
+            height: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+            aspect-ratio: 3 / 4;
+            /* 1.5m wide × 2m tall */
+            overflow: hidden;
+            background: #042f2e;
+            font-family: Arial, sans-serif;
+            position: relative;
+        }
+
+        .led-page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.6s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .led-page.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .led-page img {
+            width: auto;
+            height: 100%;
+            max-width: 100%;
+            object-fit: contain;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- 15 LED pages from PDF slides 17-31 -->
+    <div id="led-page-1" class="led-page active">
+        <img src="led_slides/slide_01.png" alt="Slide 17">
+    </div>
+    <div id="led-page-2" class="led-page">
+        <img src="led_slides/slide_02.png" alt="Slide 18">
+    </div>
+    <div id="led-page-3" class="led-page">
+        <img src="led_slides/slide_03.png" alt="Slide 19">
+    </div>
+    <div id="led-page-4" class="led-page">
+        <img src="led_slides/slide_04.png" alt="Slide 20">
+    </div>
+    <div id="led-page-5" class="led-page">
+        <img src="led_slides/slide_05.png" alt="Slide 21">
+    </div>
+    <div id="led-page-6" class="led-page">
+        <img src="led_slides/slide_06.png" alt="Slide 22">
+    </div>
+    <div id="led-page-7" class="led-page">
+        <img src="led_slides/slide_07.png" alt="Slide 23">
+    </div>
+    <div id="led-page-8" class="led-page">
+        <img src="led_slides/slide_08.png" alt="Slide 24">
+    </div>
+    <div id="led-page-9" class="led-page">
+        <img src="led_slides/slide_09.png" alt="Slide 25">
+    </div>
+    <div id="led-page-10" class="led-page">
+        <img src="led_slides/slide_10.png" alt="Slide 26">
+    </div>
+    <div id="led-page-11" class="led-page">
+        <img src="led_slides/slide_11.png" alt="Slide 27">
+    </div>
+    <div id="led-page-12" class="led-page">
+        <img src="led_slides/slide_12.png" alt="Slide 28">
+    </div>
+    <div id="led-page-13" class="led-page">
+        <img src="led_slides/slide_13.png" alt="Slide 29">
+    </div>
+    <div id="led-page-14" class="led-page">
+        <img src="led_slides/slide_14.png" alt="Slide 30">
+    </div>
+    <div id="led-page-15" class="led-page">
+        <img src="led_slides/slide_15.png" alt="Slide 31">
+    </div>
+
+    <script>
+        // ===== SYNC WITH WEB 1 =====
+        const channel = new BroadcastChannel('ge-sustainability-sync');
+
+        // Map web 1 pages to LED slide numbers
+        // Web 1 has: intro, wheel-intro, findout, home, electrify (3 sub), decarbonize (3 sub), conserve (3 sub), thrive (3 sub)
+        // LED has: 15 slides (PDF pages 17-31)
+        // Mapping: each web 1 page/subpage → LED slide
+        const pageMap = {
+            // Flow 51: Intro pages 
+            'intro': 1,              // Slide 17: "The World's Energy Manufacturer"
+            'wheel-intro': 2,        // Slide 18: "To Our Future Energy Leaders"
+            'findout': 3,            // Slide 19: same as home (Flow 52 - both show 4 pillars)
+
+            // Flow 52: Homepage
+            'home': 3,               // Slide 19: "Select one of our four pillars"
+
+            // Flow 53: Electrify
+            'electrify-0': 4,             // Slide 20: Electrify Summary
+            'electrify-1': 5,             // Slide 21: Goal 1
+            'electrify-2': 6,             // Slide 22: Goals 2-3
+
+            // Flow 54: Decarbonize
+            'decarbonize-0': 7,           // Slide 23: Decarbonize Summary
+            'decarbonize-1': 8,           // Slide 24: Goal 1
+            'decarbonize-2': 9,           // Slide 25: Goal 2
+
+            // Flow 55: Conserve
+            'conserve-0': 10,             // Slide 26: Conserve Summary
+            'conserve-1': 11,             // Slide 27: Goal 1
+            'conserve-2': 12,             // Slide 28: Goal 2
+
+            // Flow 56: Thrive
+            'thrive-0': 13,               // Slide 29: Thrive Summary
+            'thrive-1': 14,               // Slide 30: Goals 1-2
+            'thrive-2': 15                // Slide 31: Goals 3-4
+        };
+
+        let currentLedPage = 1;
+
+        function showLedPage(pageNum) {
+            if (pageNum < 1 || pageNum > 15) return;
+            if (pageNum === currentLedPage) return;
+
+            const allPages = document.querySelectorAll('.led-page');
+            allPages.forEach(p => p.classList.remove('active'));
+
+            const target = document.getElementById('led-page-' + pageNum);
+            if (target) {
+                target.classList.add('active');
+                currentLedPage = pageNum;
+                console.log('LED: showing page ' + pageNum);
+            }
+        }
+
+        channel.onmessage = (event) => {
+            const data = event.data;
+            if (data.type === 'page-change') {
+                let ledPage = 1;
+
+                // Check pillar + subpage first
+                const pillarKey = data.pageId.replace('page-', '') + '-' + (data.subpage || 0);
+                if (pageMap[pillarKey]) {
+                    ledPage = pageMap[pillarKey];
+                } else if (pageMap[data.pageId]) {
+                    ledPage = pageMap[data.pageId];
+                }
+
+                showLedPage(ledPage);
+            }
+        };
+
+        // localStorage fallback for cross-origin
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'ge-led-page') {
+                const pageNum = parseInt(e.newValue);
+                if (!isNaN(pageNum)) showLedPage(pageNum);
+            }
+        });
+
+        console.log('LED Display ready. Listening for sync on BroadcastChannel.');
+    </script>
+</body>
+
+</html>
